@@ -1,7 +1,6 @@
 package com.edu.elon.deeznotes;
 
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.util.AttributeSet;
@@ -11,6 +10,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.widget.ImageButton;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 /**
@@ -24,15 +24,15 @@ public class GameLoopView extends SurfaceView implements SurfaceHolder.Callback 
 
     private float downTouchX, downTouchY;
     private float upTouchX, upTouchY;
-    private float moveTouchX, moveTouchY;
-    private boolean isDownTouch;
+    private float moveTouchX;
+    private float moveTouchY;
     private boolean moved;
     private Delete deleteButton;
-    private ArrayList<Note> notes;
     private int whichNote = -1;
+    int highestSelected = -1;
+    boolean wasTouched = false;
     protected long downTouch;
     protected long upTouch;
-
 
     //private Notes notes;
     private ArrayList<Note> noteArray;
@@ -43,7 +43,6 @@ public class GameLoopView extends SurfaceView implements SurfaceHolder.Callback 
         surfaceHolder = getHolder();
         surfaceHolder.addCallback(this);
         thread = new GameLoopThread();
-       // notes = new Notes();
     }
 
     public void setNotes(ArrayList<Note> noteArray) {
@@ -84,32 +83,41 @@ public class GameLoopView extends SurfaceView implements SurfaceHolder.Callback 
     public boolean onTouchEvent(MotionEvent event) {
         // remember the last touch point
 
+        int sizeOfArray = noteArray.size();
+
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
             downTouchX = event.getX();
             downTouchY = event.getY();
-            moveTouchX = downTouchX;
-            moveTouchY = downTouchY;
-            isDownTouch = true;
+            if (sizeOfArray > 0) {
+                for (int i = 0; i < noteArray.size(); i++) {
+                    if (downTouchX <= noteArray.get(i).x + (noteArray.get(i).width / 2) && downTouchX >= noteArray.get(i).x - (noteArray.get(i).width / 2) && downTouchY <= noteArray.get(i).y + (noteArray.get(i).height / 2) && downTouchY >= noteArray.get(i).y - (noteArray.get(i).height / 2)) {
+                        highestSelected = i;
+                        moveTouchX = downTouchX;
+                        moveTouchY = downTouchY;
+                        whichNote = i;
+                        noteArray.get(i).isSelected = true;
+                        wasTouched = true;
+                    }
+                }
+            }
             moved = false;
             downTouch = System.currentTimeMillis();
         }
 
         if (event.getAction() == MotionEvent.ACTION_MOVE) {
-            moveTouchX = event.getX();
-            moveTouchY = event.getY();
+            if (wasTouched) {
+                System.out.println("MOVING");
+                moveTouchX = event.getX();
+                moveTouchY = event.getY();
+            }
             moved = true;
         }
 
         if(event.getAction()== MotionEvent.ACTION_UP){
             upTouchX = event.getX();
             upTouchY = event.getY();
-            upTouch = System.currentTimeMillis();
-
-            if(moved){
-                moveTouchX = upTouchX;
-                moveTouchY = upTouchY;
-            }
-
+            wasTouched = false;
+            noteArray.get(highestSelected).isSelected = false;
 
 
 
@@ -125,8 +133,7 @@ public class GameLoopView extends SurfaceView implements SurfaceHolder.Callback 
                     whichNote = -1;
                 }
             }
-
-            isDownTouch = false;
+            upTouch = System.currentTimeMillis();
         }
         return true;
 
@@ -134,35 +141,13 @@ public class GameLoopView extends SurfaceView implements SurfaceHolder.Callback 
 
     private class GameLoopThread extends Thread{
 
-        ImageButton button = (ImageButton) findViewById(R.id.addButton);
         private boolean isRunning = false;
         private long lastTime;
 
-        private Note note;
-        private Note note2;
-
-        private Add addButton;
-        private int ID;
-
         private boolean intentsForIdiots = false;
 
-
         public GameLoopThread() {
-            ID = 0;
-            note = new Note(context);
-            note2 = new Note(context);
-            deleteButton  = new Delete(context);
-            addButton = new Add(context);
-
-            moveTouchX = note.x;
-            moveTouchY = note.y;
-
-            notes = new ArrayList<Note>();
-            notes.add(note);
-
-            //note2 = new Note(context);
-            moveTouchX = note2.x;
-            moveTouchY = note2.y;
+            deleteButton = new Delete(context);
         }
 
         public void setIsRunning(boolean isRunning) {
@@ -207,59 +192,44 @@ public class GameLoopView extends SurfaceView implements SurfaceHolder.Callback 
         }
         // move all objects in the game
         private void doUpdate(double elapsed) {
-            for (int i = 0; i <noteArray.size(); i ++) {
-                if (downTouchX <= noteArray.get(i).x + (noteArray.get(i).width/2) && downTouchX >= noteArray.get(i).x - (noteArray.get(i).width/2) && downTouchY <= noteArray.get(i).y + (noteArray.get(i).height/2) && downTouchY >= noteArray.get(i).y - (noteArray.get(i).height/2)) {
-                    if (downTouch - upTouch < 500){
-                        intentsForIdiots = true;
-                    }
-                    noteArray.get(i).isSelected = true;
-                    whichNote = i;
-                    //notes.get(i).doUpdate(elapsed, moveTouchX, moveTouchY);
-                }
-                if (isDownTouch == false) {
-                    noteArray.get(i).isSelected = false;
-                }
 
-                if (isDownTouch == true && noteArray.get(i).isSelected == true) {
-                    noteArray.get(i).doUpdate(elapsed, moveTouchX, moveTouchY);
-                }
-
-                if(upTouchX <= addButton.x + (addButton.width/2) && upTouchX >= addButton.x - (addButton.width/2) && upTouchY <= addButton.y + (addButton.height/2) && upTouchY >= addButton.y - (addButton.height/2)){
-                    System.out.println("new note");
-                    Note note3 = new Note(context);
-                    noteArray.add(new Note(context));
-                    int size = noteArray.size();
-                    noteArray.get(size-1).IDNumber = ID;
-                    ID ++;
-                    upTouchX = 25;
-                    upTouchY = 25;
-                }
+            if (highestSelected >= 0 && moveTouchX != 0 && moveTouchY != 0) {
+                System.out.println(moveTouchX + "    " + moveTouchY);
+                noteArray.get(highestSelected).doUpdate(elapsed, moveTouchX, moveTouchY);
+                System.out.println("Highest +" + highestSelected);
             }
-        }
 
-        // draw all objects in the game
+            if (highestSelected >= 0 && noteArray.get(highestSelected).isSelected == false) {
+                highestSelected = -1;
+            }
+
+            }
+
+            // draw all objects in the game
         private void doDraw(Canvas canvas) {
 
             // draw the background
             canvas.drawColor(Color.argb(255, 126, 192, 238));
             deleteButton.doDraw(canvas);
-            addButton.doDraw(canvas);
 
-            for (int i = 0; i < noteArray.size(); i ++) {
-                noteArray.get(i).doDraw(canvas);
+            if (noteArray.size() > 0) {
+                for (int i = 0; i < noteArray.size(); i++) {
+                    noteArray.get(i).doDraw(canvas);
+                }
             }
-
         }
 
-        public String getStrings() {
+            public String getStrings() {
             String butthead = new String("");
             //butthead = title + text;
             return butthead;
 
-        }
+            }
 
-        public Boolean booleanCheck(){
-            return intentsForIdiots;
-        }
+            public Boolean booleanCheck(){
+                return intentsForIdiots;
+            }
+
+
     }
 }
